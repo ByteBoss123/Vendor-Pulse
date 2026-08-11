@@ -73,14 +73,7 @@ Runs locally against the DuckDB warehouse for development. Swapping
 workgroup endpoint requires no route changes — same self-serve pattern,
 different engine underneath.
 
-## Deploying the Redshift half yourself
 
-This sandbox has no network access to AWS, so the Redshift Serverless
-provisioning and the actual `COPY` load have to run in your own AWS
-account (free-tier eligible):
-
-1. Create an S3 bucket, upload `warehouse/*.parquet`
-   (skip the `duckdb_export/` folder — that's for local use only)
 2. Create a Redshift Serverless workgroup + namespace, with an IAM role
    attached that has `s3:GetObject` on your bucket
 3. Run `sql/01_create_tables.sql` in the Redshift query editor
