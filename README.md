@@ -40,7 +40,7 @@ category-name translation. 99,441 orders / 112,650 order line items /
 - Review dedup logic verified: 99,224 raw review rows -> 98,673 after
   keeping the latest review per order
 
-## Verified KPIs (real, rerunnable — see `scripts/kpis_and_keys.py`)
+## Verified KPIs (real, rerunnable — see `kpis_and_keys.py`)
 
 - 3,095 sellers with computed KPIs
 - 90.09% overall on-time delivery rate
@@ -61,22 +61,58 @@ is disclosed as such.
 
 ## Self-serve API
 
-`scripts/api.py` — FastAPI service exposing:
+`api.py` — FastAPI service exposing:
 - `GET /sellers/top?limit=N&sort_by=total_revenue` — top sellers by any KPI
 - `GET /sellers/{seller_id}` — full KPI detail for one seller
 - `GET /kpis/fulfillment?state=SP` — fulfillment summary, optionally
   filtered by seller state
 - `GET /health`
 
-Runs locally against the DuckDB warehouse for development. Swapping
-`get_con()` to `redshift_connector` against a real Redshift Serverless
-workgroup endpoint requires no route changes — same self-serve pattern,
-different engine underneath.
+Runs locally against the packaged Parquet files through DuckDB. A Redshift
+backend requires a separate connection/query adapter; it is not a drop-in
+connection change. Fulfillment rates are line-item weighted; `order_count`
+is the distinct order count within the selected seller scope.
 
 
+## Run locally
+
+Python 3.10+ is required. Run from the repository root:
+
+```bash
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows PowerShell instead: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Open http://127.0.0.1:8000/docs for the API explorer. The committed Parquet
+files are enough to serve the API; raw CSVs and AWS credentials are not required.
+Paths resolve relative to the repository, independently of the shell directory.
+`VENDORPULSE_WAREHOUSE` overrides the Parquet directory.
+
+To rebuild, obtain the Olist source CSVs and put the eight files read by
+`transform.py` in `data/` (or set `VENDORPULSE_RAW`). Then run:
+
+```bash
+python transform.py
+python kpis_and_keys.py
+```
+
+These commands replace generated warehouse files. To preserve the packaged
+outputs, set `VENDORPULSE_WAREHOUSE` to a separate output directory first.
+The raw CSV download is not automated. Local tests use small synthetic fixtures
+and do not independently validate the historical full-dataset metrics above.
+
+## Optional Redshift deployment (not validated by the local API tests)
+
+1. Upload the nine generated `.parquet` files to your bucket under
+   `vendorpulse/staging/`, matching the paths in `02_copy_from_s3.sql`.
 2. Create a Redshift Serverless workgroup + namespace, with an IAM role
    attached that has `s3:GetObject` on your bucket
-3. Run `sql/01_create_tables.sql` in the Redshift query editor
+3. Run `01_create_tables.sql` in the Redshift query editor
 4. Fill in `<your-bucket>` and `<your-redshift-role-arn>` in
-   `sql/02_copy_from_s3.sql` and run it — the final query in that file
+   `02_copy_from_s3.sql` and run it — the final query in that file
    checks loaded row counts against the numbers above
+

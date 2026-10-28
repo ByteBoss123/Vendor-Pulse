@@ -1,17 +1,9 @@
-"""
-VendorPulse self-serve KPI API.
-
-Backed by the local DuckDB warehouse for development/demo. To point at a
-real Redshift deployment, swap `get_con()` to use redshift_connector
-(pip install redshift_connector) with your workgroup endpoint, and the
-route bodies are unchanged -- this demonstrates the same "internal
-customers self-serve their own reporting" pattern the JD asks for,
-independent of which engine sits underneath.
-"""
+"""Self-serve KPI API over the packaged local Parquet warehouse."""
 from fastapi import FastAPI, HTTPException, Query
 import duckdb
 
-WAREHOUSE = "/home/claude/vendorpulse/warehouse"
+from config import OUT, sql_path
+WAREHOUSE = sql_path(OUT)
 app = FastAPI(title="VendorPulse KPI API")
 
 
@@ -26,7 +18,7 @@ def get_con():
 
 
 @app.get("/sellers/top")
-def top_sellers(limit: int = Query(10, le=100), sort_by: str = "total_revenue"):
+def top_sellers(limit: int = Query(10, ge=1, le=100), sort_by: str = "total_revenue"):
     allowed = {"total_revenue", "order_count", "on_time_rate", "avg_review_score"}
     if sort_by not in allowed:
         raise HTTPException(400, f"sort_by must be one of {allowed}")
@@ -84,7 +76,7 @@ def fulfillment_summary(state: str | None = None):
             SELECT
                 AVG(CASE WHEN delivered_on_time THEN 1.0 ELSE 0.0 END) AS on_time_rate,
                 AVG(delivery_delay_days) AS avg_delay_days,
-                COUNT(*) AS order_count
+                COUNT(DISTINCT order_id) AS order_count
             FROM fact_order_items
         """).fetchone()
     con.close()
@@ -99,3 +91,4 @@ def fulfillment_summary(state: str | None = None):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+

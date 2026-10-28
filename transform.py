@@ -11,9 +11,10 @@ join integrity before touching real infrastructure.
 import duckdb
 import os
 
-RAW = "/home/claude/vendorpulse/data"
-OUT = "/home/claude/vendorpulse/warehouse"
-os.makedirs(OUT, exist_ok=True)
+from config import RAW, OUT, sql_path
+RAW, OUT = sql_path(RAW), sql_path(OUT)
+from config import OUT as output_directory
+os.makedirs(output_directory, exist_ok=True)
 
 con = duckdb.connect()
 
@@ -220,3 +221,4 @@ con.execute(f"EXPORT DATABASE '{OUT}/duckdb_export' (FORMAT PARQUET)")
 
 print(f"\nParquet files written to {OUT}/")
 con.close()
+

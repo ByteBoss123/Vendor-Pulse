@@ -10,7 +10,8 @@ measurement, not a borrowed industry benchmark.
 import duckdb
 import time
 
-OUT = "/home/claude/vendorpulse/warehouse"
+from config import RAW, OUT, sql_path
+RAW, OUT = sql_path(RAW), sql_path(OUT)
 con = duckdb.connect()
 
 con.execute(f"""
@@ -99,3 +100,4 @@ print(f"  sorted table:   {med_sorted*1000:.2f} ms")
 print(f"  improvement:    {pct_improvement:.1f}%")
 
 con.close()
+
